@@ -178,4 +178,141 @@
         <div class="search-controls">
             <div>
                 <label for="musteriKodu">Müşteri Kodu:</label>
-                <input type="text" id="musteriKodu" placeholder="Müşteri K
+                <input type="text" id="musteriKodu" placeholder="Müşteri Kodu Girin (örn: 101964)">
+            </div>
+            <button onclick="filterByMusteriKodu()">Sorgula</button>
+            <button onclick="clearFilter()">Temizle</button>
+        </div>
+
+        <p id="loadingMessage">Veriler yükleniyor...</p>
+        <p id="noResults" style="display:none;">Hiç sonuç bulunamadı.</p>
+        <table id="resultsTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Müşteri Kodu</th>
+                    <th>Müşteri Adı</th>
+                    <th>Barkod</th>
+                    <th>Model</th>
+                    <th>Grup</th>
+                    <th>Statü</th>
+                    <th>Adet</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTgKUCgvWuXiw1wfgKYxXUunbcV85ff6o0tR7KnL14bMXAmsRih-hsLbgLxzjeQkCkulmkE-6yFV5a9/pub?output=csv';
+        let allData = []; // Tüm veriyi saklamak için
+        const resultsTable = document.getElementById('resultsTable');
+        const resultsTableBody = resultsTable.querySelector('tbody');
+        const noResultsMessage = document.getElementById('noResults');
+        const loadingMessage = document.getElementById('loadingMessage');
+
+        // CSV verisini çeken fonksiyon
+        async function fetchCSVData() {
+            try {
+                const response = await fetch(CSV_URL);
+                const csvText = await response.text();
+                allData = parseCSV(csvText);
+                loadingMessage.style.display = 'none'; // Yükleniyor mesajını gizle
+                // Tablo ve "Hiç sonuç bulunamadı" mesajı başlangıçta gizli kalacak
+                // Sadece arama yapıldığında görüntülenecekler.
+                resultsTable.style.display = 'none';
+                noResultsMessage.style.display = 'none';
+            } catch (error) {
+                console.error('CSV verisi çekilirken hata oluştu:', error);
+                loadingMessage.textContent = 'Veri yüklenemedi. Lütfen daha sonra tekrar deneyin.';
+                loadingMessage.style.color = '#dc3545';
+            }
+        }
+
+        // CSV metnini JSON formatına dönüştüren yardımcı fonksiyon
+        function parseCSV(csv) {
+            const lines = csv.split('\n');
+            const headers = lines[0].split(',').map(header => header.trim()); // Başlıkları al ve boşlukları temizle
+            const parsedData = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const currentLine = lines[i].trim();
+                if (currentLine === '') continue; // Boş satırları atla
+
+                const values = currentLine.split(',');
+                const row = {};
+                for (let j = 0; j < headers.length; j++) {
+                    // Türkçe karakter sorunlarını düzeltmek için başlıkları kontrol et
+                    let headerKey = headers[j];
+                    if (headerKey === "Müşteri Kodu") headerKey = "Müşteri Kodu";
+                    if (headerKey === "Müşteri Adı") headerKey = "Müşteri Adı";
+                    // Diğer başlıklar için de benzer kontrol eklenebilir
+
+                    row[headerKey] = values[j] ? values[j].trim() : ''; // Değerleri al ve boşlukları temizle
+                }
+                parsedData.push(row);
+            }
+            return parsedData;
+        }
+
+        // Tabloyu belirtilen verilerle dolduran fonksiyon
+        function populateTable(dataToDisplay) {
+            resultsTableBody.innerHTML = ''; // Mevcut satırları temizle
+            if (dataToDisplay.length === 0) {
+                noResultsMessage.style.display = 'block';
+                resultsTable.style.display = 'none';
+                return;
+            } else {
+                noResultsMessage.style.display = 'none';
+                resultsTable.style.display = 'table';
+            }
+
+            dataToDisplay.forEach(item => {
+                const row = resultsTableBody.insertRow();
+                // Başlıkları doğru bir şekilde eşleştirmek için anahtarları doğru kullanın
+                row.insertCell().textContent = item["Müşteri Kodu"] || '';
+                row.insertCell().textContent = item["Müşteri Adı"] || '';
+                row.insertCell().textContent = item["Barkod"] || '';
+                row.insertCell().textContent = item["Model"] || '';
+                row.insertCell().textContent = item["Grup"] || '';
+                row.insertCell().textContent = item["Statü"] || '';
+                row.insertCell().textContent = item["Adet"] || '';
+            });
+        }
+
+        // Müşteri Koduna göre filtreleme yapan fonksiyon
+        function filterByMusteriKodu() {
+            const musteriKoduInput = document.getElementById('musteriKodu').value.trim();
+            if (musteriKoduInput === '') {
+                // Eğer arama kutusu boşsa, tabloyu gizle ve "Hiç sonuç bulunamadı" mesajını göster
+                resultsTable.style.display = 'none';
+                noResultsMessage.style.display = 'block';
+                noResultsMessage.textContent = "Lütfen bir müşteri kodu girin."; // Kullanıcıya rehberlik et
+                return;
+            }
+
+            const filteredData = allData.filter(item =>
+                item["Müşteri Kodu"] && item["Müşteri Kodu"].includes(musteriKoduInput)
+            );
+            populateTable(filteredData);
+        }
+
+        // Tüm veriyi gösteren fonksiyon (artık başlangıçta çağrılmayacak)
+        function displayAllData() {
+            populateTable(allData);
+        }
+
+        // Filtreyi temizleyen ve tabloyu boşaltan fonksiyon
+        function clearFilter() {
+            document.getElementById('musteriKodu').value = '';
+            resultsTableBody.innerHTML = ''; // Tablo içeriğini temizle
+            resultsTable.style.display = 'none'; // Tabloyu gizle
+            noResultsMessage.style.display = 'none'; // "Hiç sonuç bulunamadı" mesajını gizle
+            loadingMessage.style.display = 'none'; // Yükleniyor mesajını da gizle
+        }
+
+        // Sayfa yüklendiğinde veriyi çek, ancak tabloyu hemen gösterme
+        document.addEventListener('DOMContentLoaded', fetchCSVData);
+    </script>
+</body>
+</html>
