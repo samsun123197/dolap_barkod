@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Müşteri Dolap Sorgulama</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0; /* Varsayılan gövde marjını kaldır */
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+            box-sizing: border-box; /* Doldurmayı elemanın toplam genişliği ve yüksekliğine dahil et */
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #0056b3;
+            margin-bottom: 30px;
+            font-size: 1.8em; /* Küçük ekranlar için ayarla */
+        }
+        .search-controls {
+            display: flex;
+            flex-wrap: wrap; /* Öğelerin bir sonraki satıra geçmesine izin ver */
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #e9e9e9;
+            align-items: flex-end;
+        }
+        .search-controls div {
+            flex-grow: 1;
+            min-width: 100%; /* Küçük ekranlarda tam genişlik al */
+        }
+        .search-controls label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+        .search-controls input[type="text"] {
+            width: 100%;
+            padding: 10px; /* Daha iyi dokunmatik kullanım için biraz daha büyük */
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+        .search-controls button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em; /* Yazı tipi boyutunu ayarla */
+            flex-grow: 1; /* Düğmelerin genişlemesine ve alanı doldurmasına izin ver */
+            min-width: 120px; /* Düğmeler için minimum genişlik */
+        }
+        .search-controls button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Duyarlılık için tabloya özgü stiller */
+        #resultsTable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            display: block; /* Küçük ekranlarda tabloyu kaydırılabilir yap */
+            overflow-x: auto; /* Yatay kaydırmayı etkinleştir */
+            white-space: nowrap; /* İçeriğin hücre içinde sarmasını engelle */
+        }
+        #resultsTable th, #resultsTable td {
+            border: 1px solid #ddd;
+            padding: 10px; /* Okunabilirlik için doldurmayı artır */
+            text-align: left;
+            min-width: 120px; /* Sütunların minimum genişliğe sahip olmasını sağla */
+        }
+        #resultsTable th {
+            background-color: #007bff;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        #resultsTable tbody tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        #resultsTable tbody tr:hover {
+            background-color: #ddd;
+        }
+        #noResults {
+            text-align: center;
+            color: #dc3545;
+            font-weight: bold;
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #dc3545;
+            background-color: #ffe0e0;
+            border-radius: 4px;
+        }
+        #loadingMessage {
+            text-align: center;
+            color: #007bff;
+            font-weight: bold;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e0f0ff;
+            border-radius: 4px;
+        }
+
+        /* Daha iyi duyarlılık için Medya Sorguları */
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px; /* Daha küçük ekranlarda container doldurmasını azalt */
+            }
+            h1 {
+                font-size: 1.5em; /* Başlık boyutunu daha da ayarla */
+            }
+            .search-controls {
+                flex-direction: column; /* Öğeleri dikey olarak yığınla */
+                align-items: stretch; /* Öğeleri genişliği dolduracak şekilde uzat */
+            }
+            .search-controls div, .search-controls button {
+                min-width: unset; /* Yığılmış öğeler için min-width kısıtlamalarını kaldır */
+                width: 100%; /* Tam genişliği kaplamalarını sağla */
+            }
+            .search-controls button {
+                margin-top: 5px; /* Yığılmış düğmeler arasına biraz boşluk ekle */
+            }
+
+            /* Çok küçük ekranlar için tablo ayarları, ancak overflow-x zaten hallediyor */
+            #resultsTable th, #resultsTable td {
+                font-size: 0.9em; /* Tabloda biraz daha küçük metin */
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Müşteri Dolap Sorgulama</h1>
+        <div class="search-controls">
+            <div>
+                <label for="musteriKodu">Müşteri Kodu:</label>
+                <input type="text" id="musteriKodu" placeholder="Müşteri Kodu Girin (örn: 101964)">
+            </div>
+            <button onclick="filterByMusteriKodu()">Sorgula</button>
+            <button onclick="clearFilter()">Temizle</button>
+        </div>
+
+        <p id="loadingMessage">Veriler yükleniyor...</p>
+        <p id="noResults" style="display:none;">Hiç sonuç bulunamadı.</p>
+        <table id="resultsTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Müşteri Kodu</th>
+                    <th>Müşteri Adı</th>
+                    <th>Barkod</th>
+                    <th>Model</th>
+                    <th>Grup</th>
+                    <th>Statü</th>
+                    <th>Adet</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTgKUCgvWuXiw1wfgKYxXUunbcV85ff6o0tR7KnL14bMXAmsRih-hsLbgLxzjeQkCkulmkE-6yFV5a9/pub?output=csv';
+        let allData = []; // Tüm veriyi saklamak için
+        const resultsTable = document.getElementById('resultsTable');
+        const resultsTableBody = resultsTable.querySelector('tbody');
+        const noResultsMessage = document.getElementById('noResults');
+        const loadingMessage = document.getElementById('loadingMessage');
+
+        // CSV verisini çeken fonksiyon
+        async function fetchCSVData() {
+            try {
+                const response = await fetch(CSV_URL);
+                const csvText = await response.text();
+                allData = parseCSV(csvText);
+                loadingMessage.style.display = 'none'; // Yükleniyor mesajını gizle
+                // Tablo ve "Hiç sonuç bulunamadı" mesajı başlangıçta gizli kalacak
+                // Sadece arama yapıldığında görüntülenecekler.
+                resultsTable.style.display = 'none';
+                noResultsMessage.style.display = 'none';
+            } catch (error) {
+                console.error('CSV verisi çekilirken hata oluştu:', error);
+                loadingMessage.textContent = 'Veri yüklenemedi. Lütfen daha sonra tekrar deneyin.';
+                loadingMessage.style.color = '#dc3545';
+            }
+        }
+
+        // CSV metnini JSON formatına dönüştüren yardımcı fonksiyon
+        function parseCSV(csv) {
+            const lines = csv.split('\n');
+            const headers = lines[0].split(',').map(header => header.trim()); // Başlıkları al ve boşlukları temizle
+            const parsedData = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const currentLine = lines[i].trim();
+                if (currentLine === '') continue; // Boş satırları atla
+
+                const values = currentLine.split(',');
+                const row = {};
+                for (let j = 0; j < headers.length; j++) {
+                    // Türkçe karakter sorunlarını düzeltmek için başlıkları kontrol et
+                    let headerKey = headers[j];
+                    if (headerKey === "Müşteri Kodu") headerKey = "Müşteri Kodu";
+                    if (headerKey === "Müşteri Adı") headerKey = "Müşteri Adı";
+                    // Diğer başlıklar için de benzer kontrol eklenebilir
+
+                    row[headerKey] = values[j] ? values[j].trim() : ''; // Değerleri al ve boşlukları temizle
+                }
+                parsedData.push(row);
+            }
+            return parsedData;
+        }
+
+        // Tabloyu belirtilen verilerle dolduran fonksiyon
+        function populateTable(dataToDisplay) {
+            resultsTableBody.innerHTML = ''; // Mevcut satırları temizle
+            if (dataToDisplay.length === 0) {
+                noResultsMessage.style.display = 'block';
+                resultsTable.style.display = 'none';
+                return;
+            } else {
+                noResultsMessage.style.display = 'none';
+                resultsTable.style.display = 'table';
+            }
+
+            dataToDisplay.forEach(item => {
+                const row = resultsTableBody.insertRow();
+                // Başlıkları doğru bir şekilde eşleştirmek için anahtarları doğru kullanın
+                row.insertCell().textContent = item["Müşteri Kodu"] || '';
+                row.insertCell().textContent = item["Müşteri Adı"] || '';
+                row.insertCell().textContent = item["Barkod"] || '';
+                row.insertCell().textContent = item["Model"] || '';
+                row.insertCell().textContent = item["Grup"] || '';
+                row.insertCell().textContent = item["Statü"] || '';
+                row.insertCell().textContent = item["Adet"] || '';
+            });
+        }
+
+        // Müşteri Koduna göre filtreleme yapan fonksiyon
+        function filterByMusteriKodu() {
+            const musteriKoduInput = document.getElementById('musteriKodu').value.trim();
+            if (musteriKoduInput === '') {
+                // Eğer arama kutusu boşsa, tabloyu gizle ve "Hiç sonuç bulunamadı" mesajını göster
+                resultsTable.style.display = 'none';
+                noResultsMessage.style.display = 'block';
+                noResultsMessage.textContent = "Lütfen bir müşteri kodu girin."; // Kullanıcıya rehberlik et
+                return;
+            }
+
+            const filteredData = allData.filter(item =>
+                item["Müşteri Kodu"] && item["Müşteri Kodu"].includes(musteriKoduInput)
+            );
+            populateTable(filteredData);
+        }
+
+        // Tüm veriyi gösteren fonksiyon (artık başlangıçta çağrılmayacak)
+        function displayAllData() {
+            populateTable(allData);
+        }
+
+        // Filtreyi temizleyen ve tabloyu boşaltan fonksiyon
+        function clearFilter() {
+            document.getElementById('musteriKodu').value = '';
+            resultsTableBody.innerHTML = ''; // Tablo içeriğini temizle
+            resultsTable.style.display = 'none'; // Tabloyu gizle
+            noResultsMessage.style.display = 'none'; // "Hiç sonuç bulunamadı" mesajını gizle
+            loadingMessage.style.display = 'none'; // Yükleniyor mesajını da gizle
+        }
+
+        // Sayfa yüklendiğinde veriyi çek, ancak tabloyu hemen gösterme
+        document.addEventListener('DOMContentLoaded', fetchCSVData);
+    </script>
+</body>
+</html>
